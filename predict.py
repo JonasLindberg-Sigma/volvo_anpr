@@ -7,41 +7,31 @@ from ultralytics.yolo.engine.predictor import BasePredictor
 from ultralytics.yolo.utils import DEFAULT_CONFIG, ROOT, ops
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
-import easyocr
-import pytesseract
+import keras_ocr
+import matplotlib.pyplot as plt
+import numpy as np
 
 import cv2
 
-reader = easyocr.Reader(['en'], gpu=True, model_storage_directory='/Users/jonas/.EasyOCR/model')
-
 
 def ocr_image(img, coordinates):
+    pipeline = keras_ocr.pipeline.Pipeline()
     x, y, w, h = int(coordinates[0]), int(coordinates[1]), int(coordinates[2]), int(coordinates[3])
     img = img[y:h, x:w]
 
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     gray = cv2.resize(gray, None, fx = 3, fy = 3, interpolation = cv2.INTER_CUBIC)
-    cv2.imshow('NP', gray)
-    cv2.waitKey(0)
-
-    psm=1
-    # tell Tesseract to only OCR alphanumeric characters
-    alphanumeric = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    options = "-c tessedit_char_whitelist={}".format(alphanumeric)
-    # set the PSM mode
-    options += " --psm {}".format(psm)
-    text = pytesseract.image_to_string(gray, config=options)
-    result = reader.readtext(gray)
+    cv2.imwrite('out.jpg', gray)
+    plt.subplot(1,3,2)
+    plt.imshow(np.flip(img,axis=-1))
     text = ""
-
-    for res in result:
-        if len(result) == 1:
-            text = res[1]
-        if len(result) > 1 and len(res[1]) > 6 and res[2] > 0.2:
-            text = res[1]
-    #     text += res[1] + " "
-
-    return str(text)
+    pred = pipeline.recognize(['out.jpg'])
+    for p in pred[0]:
+        text += str(p[0])
+    plt.subplot(1,3,3)
+    plt.axis('off')
+    plt.text(0,0.50, text.upper(), fontsize = 22)
+    return str("")
 
 
 class DetectionPredictor(BasePredictor):
@@ -125,6 +115,9 @@ def predict(cfg):
     cfg.model = cfg.model or "yolov8n.pt"
     cfg.imgsz = check_imgsz(cfg.imgsz, min_dim=2)  # check image size
     cfg.source = cfg.source if cfg.source is not None else ROOT / "assets"
+    src = cv2.imread(cfg.source)
+    plt.subplot(1,3,1)
+    plt.imshow(np.flip(src,axis=-1))
     predictor = DetectionPredictor(cfg)
     predictor()
 
