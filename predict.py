@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import cv2
-
+# TODO: Add Debug mode (no need to display input images, or images at all)
+# TODO: Refactor into single callable class
 
 def ocr_image(img, coordinates):
     pipeline = keras_ocr.pipeline.Pipeline()
@@ -21,16 +22,20 @@ def ocr_image(img, coordinates):
 
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     gray = cv2.resize(gray, None, fx = 3, fy = 3, interpolation = cv2.INTER_CUBIC)
-    cv2.imwrite('out.jpg', gray)
+    cv2.imwrite('out.jpg', gray) # TODO: No need to write to a file for this
     plt.subplot(1,3,2)
+    plt.axis('off')
+    plt.title('Predicted Numberplate')
     plt.imshow(np.flip(img,axis=-1))
     text = ""
     pred = pipeline.recognize(['out.jpg'])
+    # pred contains predicted text in the input image. Some number plates have text on the black border.
     for p in pred[0]:
         text += str(p[0])
     plt.subplot(1,3,3)
     plt.axis('off')
     plt.text(0,0.50, text.upper(), fontsize = 22)
+    plt.savefig('out.png')
     return str("")
 
 
@@ -60,7 +65,7 @@ class DetectionPredictor(BasePredictor):
 
     def write_results(self, idx, preds, batch):
         p, im, im0 = batch
-        log_string = ""
+        log_string = "" #
         if len(im.shape) == 3:
             im = im[None]  # expand for batch dim
         self.seen += 1
@@ -117,6 +122,8 @@ def predict(cfg):
     cfg.source = cfg.source if cfg.source is not None else ROOT / "assets"
     src = cv2.imread(cfg.source)
     plt.subplot(1,3,1)
+    plt.axis('off')
+    plt.title('Input Image')
     plt.imshow(np.flip(src,axis=-1))
     predictor = DetectionPredictor(cfg)
     predictor()
