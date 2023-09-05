@@ -8,35 +8,26 @@ from ultralytics.yolo.utils import DEFAULT_CONFIG, ROOT, ops
 from ultralytics.yolo.utils.checks import check_imgsz
 from ultralytics.yolo.utils.plotting import Annotator, colors, save_one_box
 import keras_ocr
-import matplotlib.pyplot as plt
-import numpy as np
 
 import cv2
-# TODO: Add Debug mode (no need to display input images, or images at all)
-# TODO: Refactor into single callable class
 
+_DEBUG = False
 def ocr_image(img, coordinates):
     pipeline = keras_ocr.pipeline.Pipeline()
     x, y, w, h = int(coordinates[0]), int(coordinates[1]), int(coordinates[2]), int(coordinates[3])
     img = img[y:h, x:w]
 
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    gray = cv2.resize(gray, None, fx = 3, fy = 3, interpolation = cv2.INTER_CUBIC)
-    cv2.imwrite('out.jpg', gray) # TODO: No need to write to a file for this
-    plt.subplot(1,3,2)
-    plt.axis('off')
-    plt.title('Predicted Numberplate')
-    plt.imshow(np.flip(img,axis=-1))
+    img = cv2.resize(img, None, fx = 3, fy = 3, interpolation = cv2.INTER_CUBIC)
+
+    if _DEBUG:
+        cv2.imwrite('out.jpg', img)
+
     text = ""
-    pred = pipeline.recognize(['out.jpg'])
+    pred = pipeline.recognize([img])
     # pred contains predicted text in the input image. Some number plates have text on the black border.
     for p in pred[0]:
         text += str(p[0])
-    plt.subplot(1,3,3)
-    plt.axis('off')
-    plt.text(0,0.50, text.upper(), fontsize = 22)
-    plt.savefig('out.png')
-    return str("")
+    return text.upper()
 
 
 class DetectionPredictor(BasePredictor):
@@ -64,6 +55,7 @@ class DetectionPredictor(BasePredictor):
         return preds
 
     def write_results(self, idx, preds, batch):
+        self.args.save = False
         p, im, im0 = batch
         log_string = "" #
         if len(im.shape) == 3:
@@ -92,27 +84,13 @@ class DetectionPredictor(BasePredictor):
         # write
         gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
         for *xyxy, conf, cls in reversed(det):
-            if self.args.save_txt:  # Write to file
-                xywh = (ops.xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                line = (cls, *xywh, conf) if self.args.save_conf else (cls, *xywh)  # label format
-                with open(f'{self.txt_path}.txt', 'a') as f:
-                    f.write(('%g ' * len(line)).rstrip() % line + '\n')
+            text_ocr = ocr_image(im0, xyxy)
+            print(text_ocr)
 
-            if self.args.save or self.args.save_crop or self.args.show:  # Add bbox to image
-                c = int(cls)  # integer class
-                label = None if self.args.hide_labels else (
-                    self.model.names[c] if self.args.hide_conf else f'{self.model.names[c]} {conf:.2f}')
-                text_ocr = ocr_image(im0, xyxy)
-                label = text_ocr
-                self.annotator.box_label(xyxy, label, color=colors(c, True))
-            if self.args.save_crop:
-                imc = im0.copy()
-                save_one_box(xyxy,
-                             imc,
-                             file=self.save_dir / 'crops' / self.model.model.names[c] / f'{self.data_path.stem}.jpg',
-                             BGR=True)
-
-        return log_string
+        try:
+            return text_ocr
+        except NameError as e:
+            return e
 
 
 @hydra.main(version_base=None, config_path=str(DEFAULT_CONFIG.parent), config_name=DEFAULT_CONFIG.name)
@@ -120,11 +98,6 @@ def predict(cfg):
     cfg.model = cfg.model or "yolov8n.pt"
     cfg.imgsz = check_imgsz(cfg.imgsz, min_dim=2)  # check image size
     cfg.source = cfg.source if cfg.source is not None else ROOT / "assets"
-    src = cv2.imread(cfg.source)
-    plt.subplot(1,3,1)
-    plt.axis('off')
-    plt.title('Input Image')
-    plt.imshow(np.flip(src,axis=-1))
     predictor = DetectionPredictor(cfg)
     predictor()
 
