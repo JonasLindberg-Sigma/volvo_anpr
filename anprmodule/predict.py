@@ -1,3 +1,5 @@
+import os
+
 import hydra
 import logging
 import numpy as np
@@ -7,6 +9,7 @@ from ultralytics.yolo.utils import ops
 from ultralytics.yolo.utils.checks import check_imgsz
 
 from anprmodule.ocr import ocr_image
+from .config_loader import get_config
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.FATAL)
@@ -58,12 +61,12 @@ class DetectionPredictor(BasePredictor):
 
 def run(src, model):
     with hydra.initialize(version_base=None, config_path='.', job_name='anpr'):
-        cfg = hydra.compose(config_name='default.yaml')
+        cfg = get_config()
         def _run(cfg):
             cfg.model = str(model)
             cfg.source = str(src)
             cfg.imgsz = check_imgsz(cfg.imgsz, min_dim=2)  # check image size
-            cfg.save = False # Avoid saving detection outputs
+            cfg.save = False  # Avoid saving detection outputs
             global reg
             predictor = DetectionPredictor(cfg)
             predictor()
@@ -74,7 +77,7 @@ def run(src, model):
 
 
 if __name__ == "__main__":
-    model = '../../lib/best.pt'
-    source = '../../lib/EWP05W.jpg'
+    model = '../lib/best.pt'
+    source = '../lib/EWP05W.jpg'
     r = run(src=source, model=model)
     print(r)
