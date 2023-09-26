@@ -1,0 +1,8 @@
+ # venv and misc
+ .venv/
+ .idea/
+
+# Build related
+build/
+dist/
+anprmodule.egg-info
