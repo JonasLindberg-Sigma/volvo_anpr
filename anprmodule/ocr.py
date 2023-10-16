@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
 import keras_ocr
-import pytesseract
-import PIL
 
 def ocr_image(img, coordinates):
     pipeline = keras_ocr.pipeline.Pipeline()
